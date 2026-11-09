@@ -4,7 +4,7 @@ import json
 import tempfile
 import unittest
 import zipfile
-from scripts.reproduce import DATA, ROOT, read_responses, verify_inputs
+from scripts.reproduce import DATA, ROOT, digest_recorded_text, read_responses, verify_inputs
 from scripts.package_release import make_archive, PREFIX
 
 
@@ -13,6 +13,18 @@ class ReproductionEvidenceTests(unittest.TestCase):
         result = verify_inputs()
         self.assertEqual(result['frozen_sources_verified'], 5)
         self.assertGreater(result['study_files_verified'], 20)
+
+    def test_episode_export_hash_accepts_either_newline_style(self):
+        text = '{"episode_id":"a"}\n{"episode_id":"b"}\n'
+        recorded = text.replace('\n', '\r\n').encode()
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            lf = folder / 'lf.jsonl'
+            crlf = folder / 'crlf.jsonl'
+            lf.write_bytes(text.encode())
+            crlf.write_bytes(recorded)
+            self.assertEqual(digest_recorded_text(lf), digest_recorded_text(crlf))
+            self.assertEqual(digest_recorded_text(lf), hashlib.sha256(recorded).hexdigest())
 
     def test_lossless_record_container_preserves_all_calls_and_failures(self):
         records = read_responses(DATA / 'main/responses.jsonl')

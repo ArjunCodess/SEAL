@@ -21,6 +21,12 @@ def digest(path: Path) -> str:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
+def digest_recorded_text(path: Path) -> str:
+    """Hash an export in the CRLF form stored by the recorded Windows run."""
+    data = path.read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+    return hashlib.sha256(data).hexdigest()
+
+
 def verify_inputs(data: Path = DATA, source_root: Path = ROOT) -> dict:
     checksums = json.loads((data / 'checksums.json').read_text(encoding='utf8'))
     for relative, expected in checksums.items():
@@ -131,7 +137,7 @@ def verify_analysis(output: Path, data: Path = DATA) -> dict:
     import pandas as pd
     from pandas.testing import assert_frame_equal
     contract = json.loads((data / 'reference/analysis_contract.json').read_text(encoding='utf8'))
-    if digest(output / 'episodes.jsonl') != contract['episodes_sha256']:
+    if digest_recorded_text(output / 'episodes.jsonl') != contract['episodes_sha256']:
         raise ValueError('Normalized episode export differs from the recorded study')
     summary = json.loads((output / 'analysis/summary.json').read_text(encoding='utf8'))
     if summary['input']['status_counts'] != contract['status_counts'] or summary['input']['episodes'] != 960:
