@@ -4,11 +4,27 @@ import json
 import tempfile
 import unittest
 import zipfile
-from scripts.reproduce import DATA, ROOT, digest_recorded_text, read_responses, verify_inputs
+from unittest.mock import patch
+from scripts.reproduce import DATA, ROOT, digest_recorded_text, read_responses, reproduce, verify_inputs
 from scripts.package_release import make_archive, PREFIX
 
 
 class ReproductionEvidenceTests(unittest.TestCase):
+    def test_build_output_cannot_be_an_ancestor_of_frozen_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data = root / 'data/study'
+            data.mkdir(parents=True)
+            evidence = data / 'record.json'
+            evidence.write_text('frozen evidence')
+            with patch('scripts.reproduce.ROOT', root), patch('scripts.reproduce.DATA', data):
+                with patch('scripts.reproduce.verify_inputs') as verify:
+                    with self.assertRaisesRegex(ValueError, 'immutable study inputs'):
+                        reproduce(root / 'data', analysis_only=True)
+                    verify.assert_not_called()
+            self.assertEqual(evidence.read_text(), 'frozen evidence')
+            self.assertEqual(list(data.iterdir()), [evidence])
+
     def test_frozen_inputs_and_sources_match_recorded_hashes(self):
         result = verify_inputs()
         self.assertEqual(result['frozen_sources_verified'], 5)

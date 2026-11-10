@@ -207,7 +207,7 @@ def verify_pdf(pdf: Path, build_status: Path) -> dict:
 
 def reproduce(output: Path, *, analysis_only: bool = False) -> dict:
     output = output.resolve()
-    if output == ROOT or output == DATA.resolve() or output.is_relative_to(DATA.resolve()):
+    if output == ROOT or output.is_relative_to(DATA.resolve()) or DATA.resolve().is_relative_to(output):
         raise ValueError('Build output must be separate from source and immutable study inputs')
     output.mkdir(parents=True, exist_ok=True)
     verification = verify_inputs()
