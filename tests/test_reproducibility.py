@@ -84,5 +84,16 @@ class ReproductionEvidenceTests(unittest.TestCase):
                 sums = json.loads(archive.read(PREFIX + 'checksums.json'))
                 self.assertEqual(hashlib.sha256(archive.read(PREFIX + 'README.md')).hexdigest(), sums['README.md'])
 
+    def test_release_outputs_cannot_overwrite_input_artifacts(self):
+        for name in ('research.zip', 'research.zip.partial', 'research.verification.json'):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                source = root / name
+                source.write_bytes(b'frozen release input')
+                with self.assertRaisesRegex(ValueError, 'overwrite an input artifact'):
+                    make_archive({name: source}, root / 'research.zip')
+                self.assertEqual(source.read_bytes(), b'frozen release input')
+                self.assertEqual(list(root.iterdir()), [source])
+
 if __name__ == '__main__':
     unittest.main()

@@ -35,9 +35,14 @@ def release_files(root: Path, build: Path) -> dict[str, Path]:
 
 
 def make_archive(files: dict[str, Path], destination: Path) -> dict:
+    temporary = destination.with_suffix('.zip.partial')
+    verification = destination.with_suffix('.verification.json')
+    inputs = {path.resolve() for path in files.values()}
+    for output in (destination, temporary, verification):
+        if output.resolve() in inputs:
+            raise ValueError(f'Release output would overwrite an input artifact: {output}')
     destination.parent.mkdir(parents=True, exist_ok=True)
     checksums = {name: digest(path) for name, path in sorted(files.items())}
-    temporary = destination.with_suffix('.zip.partial')
     with zipfile.ZipFile(temporary, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         for name, path in sorted(files.items()):
             archive.write(path, PREFIX + name)
@@ -52,7 +57,7 @@ def make_archive(files: dict[str, Path], destination: Path) -> dict:
     temporary.replace(destination)
     result = {'archive': destination.name, 'sha256': digest(destination), 'bytes': destination.stat().st_size,
               'files_verified': len(checksums), 'all_hashes_verified': True}
-    destination.with_suffix('.verification.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf8')
+    verification.write_text(json.dumps(result, indent=2) + '\n', encoding='utf8')
     return result
 
 
