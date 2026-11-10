@@ -16,13 +16,13 @@ PREFIX = 'supervisor-evidence-arms/'
 
 def release_files(root: Path, build: Path) -> dict[str, Path]:
     files = {}
-    for directory in ('src', 'scripts', 'tests', 'paper', 'data/study', 'experiments', 'docs', '.github'):
+    for directory in ('src', 'scripts', 'tests', 'paper', 'data/study', 'docs', '.github'):
         for path in (root / directory).rglob('*'):
             if path.is_file() and not path.is_symlink() and '__pycache__' not in path.parts and path.suffix not in {'.pyc', '.log', '.aux', '.out'}:
                 files[path.relative_to(root).as_posix()] = path
     for name in ('README.md', 'LICENSE', 'CITATION.cff', '.gitignore', '.gitattributes', 'pyproject.toml', 'requirements.txt', 'run_all.sh', 'run_all.ps1'):
         files[name] = root / name
-    for directory in ('analysis', 'paper', 'recovery-costs', 'recovery-replay-validated', 'natural-context'):
+    for directory in ('analysis', 'paper'):
         for path in (build / directory).rglob('*'):
             if path.is_file() and path.suffix.lower() in {'.csv', '.json', '.md', '.png', '.pdf', '.tex'}:
                 files['build/' + path.relative_to(build).as_posix()] = path

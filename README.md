@@ -158,20 +158,6 @@ A complete `python scripts/reproduce.py` writes:
 - [`paper/authors.json`](paper/authors.json): Arjun Vijay Prakash, Independent Researcher
 - [`tests/`](tests): fixture, analysis, report, and reproduction tests
 
-## Budgeted recovery development extension
-
-The recovery software and its research limits are recorded in [the build status](docs/recovery-build-status.md). The original `data/study` results remain frozen. The additional 360-call development pilot is a cost diagnostic with constructed controls, not a new confirmatory safety study. Its collection ledger conservatively charges 2.07630164 credits.
-
-After installing the dependencies, these commands run without an API key:
-
-```bash
-python scripts/run_recovery_replay.py all --output-dir build/recovery-replay
-python scripts/prepare_recovery_study.py --output-dir build/recovery-study-prep
-python scripts/analyze_recovery_costs.py --pilot-dir experiments/recovery-development --output-dir build/recovery-costs --plot
-```
-
-Use fresh output directories for a new source revision. The replay is diagnostic on inspected templates; the prepare command creates a development specification without collecting a study. The cost report checks the retained request hashes and distinguishes measured token usage from conservative charges. [The scientific review](docs/recovery-scientific-review.md) explains why the small constructed catalog does not justify selective retrieval. Natural-trace context measurement is a separate feasibility check, not a replacement safety benchmark.
-
 ## Citation
 
 Cite SEAL (Supervisor Evidence Arms, Live) and the repository commit. [`CITATION.cff`](CITATION.cff) records the title, author, and version. The report's appendix states which implementation, drafting, and formatting assistance was used and that the author reviewed the code, analyses, results, and manuscript.
