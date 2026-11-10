@@ -102,6 +102,8 @@ python scripts/package_release.py
 
 The archive is written to `dist/supervisor-evidence-arms-0.1.0.zip`. `build/` and `dist/` are generated and are not source.
 
+Custom reproduction outputs must be separate from `data/study`, including its parent directories, so a rebuild cannot write into the frozen inputs. Release packaging also rejects archive, temporary ZIP, or verification paths that coincide with an input artifact.
+
 ## Data
 
 `data/study` is the frozen study. `checksums.json` pins every file under it.
