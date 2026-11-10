@@ -48,6 +48,22 @@ def verify_inputs(data: Path = DATA, source_root: Path = ROOT) -> dict:
     return {'study_files_verified': len(checksums), 'frozen_sources_verified': len(contract['sha256'])}
 
 
+def verify_recovery_inputs(source_root: Path = ROOT) -> dict:
+    """Check exact-byte manifests for the separate development diagnostics."""
+    verified = {}
+    for name in ('recovery-development', 'natural-workflow-costs'):
+        folder = source_root / 'experiments' / name
+        if not folder.exists():
+            continue
+        checksums = json.loads((folder / 'checksums.json').read_text(encoding='utf8'))
+        for relative, expected in checksums.items():
+            path = (folder / relative).resolve()
+            if not path.is_relative_to(folder.resolve()) or not path.is_file() or digest(path) != expected:
+                raise ValueError(f'Changed recovery input: {name}/{relative}')
+        verified[name] = len(checksums)
+    return {'recovery_artifacts_verified': verified}
+
+
 @dataclass(frozen=True)
 class RecordedResponse:
     filename: str
@@ -211,6 +227,7 @@ def reproduce(output: Path, *, analysis_only: bool = False) -> dict:
         raise ValueError('Build output must be separate from source and immutable study inputs')
     output.mkdir(parents=True, exist_ok=True)
     verification = verify_inputs()
+    verification.update(verify_recovery_inputs())
     responses = materialize_study(DATA, output)
     from src import live_study
     from src.live_analysis import run_analysis
@@ -238,7 +255,7 @@ def main() -> None:
     parser.add_argument('--verify-only', action='store_true', help='Verify frozen inputs and sources without rebuilding')
     parser.add_argument('--update-docs-figure', action='store_true', help='Refresh the versioned README figure from rebuilt results')
     args = parser.parse_args()
-    result = verify_inputs() if args.verify_only else reproduce(args.output, analysis_only=args.analysis_only)
+    result = {**verify_inputs(), **verify_recovery_inputs()} if args.verify_only else reproduce(args.output, analysis_only=args.analysis_only)
     if args.update_docs_figure:
         if args.verify_only:
             parser.error('--update-docs-figure requires rebuilding the analysis')

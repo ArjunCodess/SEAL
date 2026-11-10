@@ -9,23 +9,28 @@ import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from scripts.reproduce import DATA, digest, verify_inputs, verify_analysis, verify_pdf
+from scripts.reproduce import DATA, digest, verify_inputs, verify_recovery_inputs, verify_analysis, verify_pdf
 
 PREFIX = 'supervisor-evidence-arms/'
 
 
 def release_files(root: Path, build: Path) -> dict[str, Path]:
     files = {}
-    for directory in ('src', 'scripts', 'tests', 'paper', 'data/study', 'docs', '.github'):
+    for directory in ('src', 'scripts', 'tests', 'paper', 'data/study', 'experiments', 'docs', '.github'):
         for path in (root / directory).rglob('*'):
             if path.is_file() and not path.is_symlink() and '__pycache__' not in path.parts and path.suffix not in {'.pyc', '.log', '.aux', '.out'}:
                 files[path.relative_to(root).as_posix()] = path
     for name in ('README.md', 'LICENSE', 'CITATION.cff', '.gitignore', '.gitattributes', 'pyproject.toml', 'requirements.txt', 'run_all.sh', 'run_all.ps1'):
         files[name] = root / name
-    for directory in ('analysis', 'paper'):
-        for path in (build / directory).rglob('*'):
+    output_roots = [(build / name, build) for name in ('analysis', 'paper')]
+    output_roots += [(root / 'build' / name, root / 'build') for name in
+                     ('recovery-costs', 'recovery-replay-final', 'recovery-study-prep-final', 'natural-context-validated')]
+    for directory, base in output_roots:
+        for path in directory.rglob('*'):
+            if path.name in {'contact-sheet.png', 'final-page.png', 'page-13.png', 'page-14.png'}:
+                continue
             if path.is_file() and path.suffix.lower() in {'.csv', '.json', '.md', '.png', '.pdf', '.tex'}:
-                files['build/' + path.relative_to(build).as_posix()] = path
+                files['build/' + path.relative_to(base).as_posix()] = path
     for name in ('reproduction.json', 'gateway_audit.csv', 'overview.png'):
         files['build/' + name] = build / name
     for name, path in files.items():
@@ -67,6 +72,7 @@ def main() -> None:
     parser.add_argument('--output', type=Path, default=ROOT / 'dist/supervisor-evidence-arms-0.1.0.zip')
     args = parser.parse_args()
     verify_inputs()
+    verify_recovery_inputs()
     verify_analysis(args.build)
     verify_pdf(args.build / 'paper/main.pdf', args.build / 'paper/build_status.json')
     print(json.dumps(make_archive(release_files(ROOT, args.build), args.output), indent=2))
