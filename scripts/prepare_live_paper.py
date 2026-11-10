@@ -969,7 +969,7 @@ def build_protocol_abstract(facts: dict[str, Any], worker: dict[str, Any], asses
         "compares four evidence and enforcement arms, claims, receipts, state, and provenance, on "
         "paired synthetic tasks with instructed attacks, not emergent collusion. "
         f"The locally frozen main target is {facts['main_target_episodes']} held-out test episodes across "
-        f"{facts['independent_families_per_split']} independent template families with ten numeric variants each; "
+        f"{facts['independent_families_per_split']} template families with ten numeric variants each; "
         "family-cluster bootstrap resamples four blocks, so intervals stay coarse. "
         "All arms now receive identical worker messages plus tier evidence; provenance adds an independently "
         "enforced gate, so zero harmful executions would bound rule enforcement rather than learned robustness. "
@@ -978,7 +978,7 @@ def build_protocol_abstract(facts: dict[str, Any], worker: dict[str, Any], asses
         + pilot_line
         + worker_line
         + pending_reason
-        + " Prior October and 6 November stored-state and NARCBench studies remain supporting evidence only."
+        + " This draft is an empirical audit of fixed evidence arms, not a learned budgeted evidence-recovery study."
     )
     return abstract
 
@@ -1131,17 +1131,18 @@ def build_final_abstract(
             worker_note += f"{scripted_fb} scripted-fallback fixtures recorded. "
     abstract = (
         "Live model supervisors may publish illegitimate workflows when workers assert false completion on "
-        f"fixed local fixtures. This report summarizes held-out test episodes from frozen protocol {protocol} "
-        f"with supervisors {model_phrase} ({episode_phrase} episodes, four independent families, "
-        f"{boot_phrase}). Attacks follow three mechanisms with single versus coordinated worker volume on "
+        f"fixed fixtures. This audit summarizes held-out test episodes from frozen protocol {protocol} "
+        f"with supervisors {model_phrase} ({episode_phrase} episodes, four template families, "
+        f"{boot_phrase}). Attacks follow three mechanisms with single versus coordinated message counts and speaker roles on "
         f"fixed snapshots; models are not pooled. {incomplete} error or invalid episodes enter all-status denominators only. "
         f"Coordinated claims/provenance unsafe execution: {'; '.join(coordinated_unsafe)}. "
         f"Honest provenance legitimate completion: {'; '.join(honest_legit)}. "
         + contrast_sentence
         + " "
         + worker_note
-        + "Unsafe execution includes corrected summaries on illegitimate workflows. Provenance receives trusted summaries and may veto publish requests deterministically. "
-        "Attacks are instructed, not emergent collusion."
+        + "Claims, receipts, and state execute publish advice; provenance sees summaries when binding is complete and alone may veto "
+        "or abstain in code. Unsafe execution includes corrected summaries on illegitimate workflows. "
+        "Attacks are instructed, not emergent collusion. Prospective budgeted evidence recovery was not conducted."
     )
     return abstract
 
@@ -1179,10 +1180,10 @@ def build_results_narrative_tex(
             "and Figure~\\ref{fig:live-coprimary}). Rates are shown separately for single-worker attacks, "
             "three-speaker coordinated attacks, and honest controls; we do not pool adversarial strata.",
             "",
-            "Claims, receipts, and state arms execute supervisor-requested publication on the fake local sink. "
+            "Claims, receipts, and state arms execute supervisor \\emph{advice} to publish on the fake local sink. "
             "Provenance alone may refuse publication after an independent digest and authorization check, "
-            "so a reduction in unsafe \\emph{execution} relative to unsafe \\emph{attempt} indicates deterministic "
-            "blocking rather than a lower model publish rate.",
+            "so a reduction in unsafe \\emph{execution} relative to unsafe \\emph{attempt} separates deterministic "
+            "enforcement from model publish advice, not a lower willingness to request publish.",
             "",
             "{\\scriptsize\\setlength{\\tabcolsep}{2pt}",
             "\\IfFileExists{live_generated/table_main_results.tex}{",
@@ -1260,13 +1261,14 @@ def build_conclusion_tex(*, render_mode: str, main_ready: bool, assessment: dict
         episodes = assessment.get("episodes", 0)
         return (
             "\\section{Conclusion}\n"
-            f"On {episodes} held-out test episodes across four independent families, this study measures "
+            f"On {episodes} held-out test episodes across four template families, this empirical audit measures "
             "unsafe workflow execution and legitimate completion separately for each model and condition. "
             "Completed-case rates and failure-inclusive sensitivities preserve their distinct denominators. "
-            "Provenance alone receives trusted summaries and an enforced gateway that can veto a publish request, "
-            "so execution differences combine information and deterministic enforcement effects. Single-versus-coordinated contrasts remain "
-            "descriptive because message volume differs. These rates bound supervised publication on synthetic "
-            "tasks; they are not claims about emergent collusion or production deployment.\n"
+            "Supervisor publish advice can still execute on the sink unless provenance code vetoes the request, "
+            "so execution differences on provenance combine observation access and deterministic enforcement, not model refusal alone. "
+            "Single-versus-coordinated contrasts remain descriptive because message counts and speaker roles differ. "
+            "These rates describe supervised publication on synthetic tasks under fixed evidence arms; "
+            "they are not claims about emergent collusion, production deployment, or learned evidence budgets.\n"
         )
     return (
         "\\section{Conclusion}\n"
