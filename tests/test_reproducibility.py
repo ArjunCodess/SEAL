@@ -5,11 +5,27 @@ import tempfile
 import unittest
 import zipfile
 from unittest.mock import patch
-from scripts.reproduce import DATA, ROOT, digest_recorded_text, read_responses, reproduce, verify_inputs
+from scripts.reproduce import DATA, ROOT, digest_recorded_text, read_responses, reproduce, verify_inputs, verify_pdf
 from scripts.package_release import make_archive, PREFIX
 
 
 class ReproductionEvidenceTests(unittest.TestCase):
+    def test_preprint_keywords_do_not_enter_abstract_word_count(self):
+        import pymupdf
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pdf = root / 'main.pdf'
+            document = pymupdf.open()
+            page = document.new_page()
+            text = 'Title\nAbstract\n' + 'word ' * 244 + 'comple-\ntion\nKeywords ' + 'keyword ' * 100 + '\n1 Introduction\nBody'
+            self.assertGreater(page.insert_textbox(pymupdf.Rect(40, 40, 550, 780), text, fontsize=9), 0)
+            document.new_page().insert_text((40, 40), 'References')
+            document.save(pdf)
+            document.close()
+            status = root / 'build_status.json'
+            status.write_text(json.dumps({'render_mode': 'final', 'main_results_ready': True}))
+            self.assertEqual(verify_pdf(pdf, status)['abstract_words_pdf'], 245)
+
     def test_build_output_cannot_be_an_ancestor_of_frozen_inputs(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

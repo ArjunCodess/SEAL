@@ -213,7 +213,9 @@ def verify_pdf(pdf: Path, build_status: Path) -> dict:
     ref_page = next((i for i, text in enumerate(texts) if re.search(r'^References\s*$', text, re.M)), None)
     if ref_page is None or ref_page > 8:
         raise ValueError('Report must include references after at most eight main-text pages')
-    abstract = joined.split('Abstract', 1)[1].split('Introduction', 1)[0]
+    abstract = re.split(r'\babstract\b', joined, maxsplit=1, flags=re.I)[1]
+    abstract = re.split(r'\b(?:keywords|introduction)\b', abstract, maxsplit=1, flags=re.I)[0]
+    abstract = re.sub(r'-[ \t]*\n[ \t]*', '-', abstract)
     words = len(re.findall(r"\b[\w]+(?:[-'][\w]+)*\b", abstract))
     if not 150 <= words <= 250 or pdf.stat().st_size >= 25 * 1024**2:
         raise ValueError('Report abstract or PDF size is outside the release bounds')
