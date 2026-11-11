@@ -2,7 +2,7 @@
 
 **SEAL (Supervisor Evidence Arms, Live)** records how two live supervisor models respond when workers claim that a local job is finished. The full study name is Live Supervisor Evidence Arms on Fixed Local Fixtures. Four evidence arms are compared on the same fixture catalog: worker claims alone, signed receipts with a fresh checkpoint, a fixed keeper snapshot, and trusted provenance plus a deterministic publication gate. The study has 960 scheduled episodes, 909 completed responses, 29 invalid outputs, and 22 errors. It is a controlled evaluation of instructed attacks on a fake local sink. It is not evidence of spontaneous collusion.
 
-The report source is [`paper/main.tex`](paper/main.tex). `python scripts/reproduce.py` rebuilds the analysis and writes the compiled PDF to `build/paper/main.pdf`. No model call is made during that rebuild.
+The paper is [`paper/main.pdf`](paper/main.pdf), with source in [`paper/main.tex`](paper/main.tex). `python scripts/reproduce.py` rebuilds the analysis and writes a fresh PDF to `build/paper/main.pdf`. No model call is made during that rebuild.
 
 ![Unsafe execution among completed attacks](docs/assets/oversight-results.png)
 
@@ -157,6 +157,22 @@ A complete `python scripts/reproduce.py` writes:
 - [`paper/main.tex`](paper/main.tex): report source
 - [`paper/authors.json`](paper/authors.json): Arjun Vijay Prakash, Independent Researcher
 - [`tests/`](tests): fixture, analysis, report, and reproduction tests
+
+## Budgeted recovery development extension
+
+The recovery software and its research limits are recorded in [the build status](docs/recovery-build-status.md). The original `data/study` results remain frozen. The additional 360-call development pilot is a cost diagnostic with constructed controls, not a new confirmatory safety study. Its collection ledger conservatively charges 2.07630164 credits.
+
+After installing the dependencies, these commands run without an API key:
+
+```bash
+python scripts/run_recovery_replay.py all --output-dir build/recovery-replay
+python scripts/prepare_recovery_study.py --output-dir build/recovery-study-prep
+python scripts/analyze_recovery_costs.py --pilot-dir experiments/recovery-development --output-dir build/recovery-costs --plot
+```
+
+Use fresh output directories for a new source revision. The replay is diagnostic on inspected templates; the prepare command creates a development specification without collecting a study. The cost report checks the retained request hashes and distinguishes measured token usage from conservative charges. [The scientific review](docs/recovery-scientific-review.md) explains why the small constructed catalog does not justify selective retrieval. Natural-trace context measurement is a separate feasibility check, not a replacement safety benchmark.
+
+[The natural workflow diagnostic](docs/natural-workflow-corpus.md) retains 30 public software-agent traces and corrected local Qwen 3.5 counts. One prompt exceeded the configured input allowance; the chosen feasibility go rule was not met. Raw sources, hashes, counts and sampling limits are recorded under `experiments/natural-workflow-costs`. Install the optional `context` dependencies and the pinned tokenizer to reproduce the counts; no inference API key is needed.
 
 ## Citation
 
