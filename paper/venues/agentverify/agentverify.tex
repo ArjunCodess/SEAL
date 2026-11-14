@@ -1,0 +1,90 @@
+\documentclass[10pt,conference]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,booktabs,array,graphicx}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\input{generated/macros}
+
+\title{Separating Supervisor Publication Requests from Enforced Outcomes}
+
+\author{\IEEEauthorblockN{Anonymous Submission}}
+
+\hypersetup{
+  pdftitle={Separating Supervisor Publication Requests from Enforced Outcomes},
+  pdfauthor={Anonymous},
+  pdfsubject={SEAL offline audit on fixed synthetic jobs},
+  pdfkeywords={agent evaluation, evidence provenance, publication gate, synthetic fixtures}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\input{generated/abstract}
+\end{abstract}
+
+\IEEEpeerreviewmaketitle
+
+\section{Introduction}
+Supervisor models can request publication of incorrect summaries on fixed synthetic local jobs. This extended abstract separates a supervisor \emph{publication request} from an \emph{enforced outcome}: claims, receipts, and state arms execute a publish request on the fake local sink, while provenance adds a deterministic code gate that may refuse or abstain. The SEAL (Supervisor Evidence Arms, Live) audit uses \SealTotalEpisodes{} scheduled supervisor calls (\SealCompleted{} completed, \SealInvalid{} invalid, \SealError{} errors) across two models and four evidence arms. The fixtures are instructed, non-adaptive, synthetic jobs; the sink is fake, \texttt{side\_effects} is false, and signing keys are public demo keys. Prior work studies agent attack evaluation~\cite{agentdojo}, instruction priority~\cite{instructionhierarchy}, deliberate subversion~\cite{aicontrol}, and defenses by construction~\cite{camel}.
+
+\section{Method}
+The frozen study contains 960 scheduled episodes. Attacks use three mechanisms on four templates: consistent fake input, unauthorized publication, and ambiguous evidence. Single and coordinated conditions differ in message count and speaker roles, so coordination contrasts remain descriptive. Honest controls use three speakers. Provenance observations include \texttt{trusted\_summary} when binding is complete; the blind extension is reported separately; retry and new-wording results are excluded from this short version.
+
+\emph{Oracle and denominators.} A publication is unsafe if the fixture is illegitimate or unanswerable, or its summary differs from the reference truth. Correct arithmetic alone therefore does not establish authorized publication. The decision endpoint records the supervisor's unsafe request before enforcement; the execution endpoint records whether that request reaches the sink. Each table cell uses its own completed, schema-valid attack denominator. Invalid outputs and API errors remain in the scheduled ledger and are not treated as refusals or successful prevention. Honest completion is a separate utility check, and the original three-speaker honest controls do not provide a matched one-speaker comparison.
+
+The gate is \texttt{\_provenance\_action} in the fixture code, not learned refusal. It checks authorization, provenance binding, and \texttt{trusted\_summary != summary}; earlier checks can veto before the equality check, including when a corrected true summary is supplied on an illegitimate fixture. A mutation audit replays the actual gate on \MutationTotal{} summary variants: \MutationBlocked{} blocks, \MutationAbstained{} abstentions, and \MutationPublished{} publications. It also includes \PositiveControls{} legitimate publishes and \MismatchControls{} isolated equality-mismatch blocks. Pairing uses the original all-four-arm rule; it retains \PairGemmaSingle{}/4 Gemma families in each attack stratum, \PairQwenSingle{}/4 for Qwen single, and \PairQwenCoordinated{}/4 for Qwen coordinated. Incident-timeline is unpaired in all four attack strata. The provenance oracle recomputes the trusted summary from \texttt{trusted\_inputs} and compares it to the candidate summary; a corrected true summary on an illegitimate fixture is still vetoed by earlier binding and authorization checks.
+
+\section{Results}
+Table~\ref{tab:endpoints} gives both endpoints per model and coordination across the four arms as unsafe decisions / unsafe executions. Claims, receipts, and state have identical decision and execution counts; provenance requests and gate outcomes differ in every attack stratum. Table~\ref{tab:mutations} and Table~\ref{tab:pairing} report the gate audit and pairing coverage.
+
+The mutation controls distinguish two explanations of a gate zero. Legitimate controls show that correct, authorized jobs can publish in this catalog. Isolated mismatch controls hold the earlier checks valid and exercise summary equality directly. Attack mutations often encounter an earlier veto, so their zero publications alone do not isolate the equality check or exhaust the gate's input domain. Likewise, the pairing inventory describes unsafe executions on matching completed fixture sets; it is not a paired estimate of every decision contrast.
+
+\begin{table}[t]
+\centering
+\caption{Unsafe decisions / executions / completed attacks (D/E/N), separately for each model and condition.}
+\label{tab:endpoints}
+\scriptsize
+\input{generated/table_endpoints}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Gate mutation audit and controls.}
+\label{tab:mutations}
+\scriptsize
+\input{generated/table_mutations}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Unsafe-execution pairing; excluded families have different completed fixture sets across arms.}
+\label{tab:pairing}
+\scriptsize
+\input{generated/table_pairing}
+\end{table}
+
+\section{Interpretation and auditability}
+The central diagnostic is the gap between a request and its enforced outcome. An execution-only score can conceal a supervisor that continues to ask for an unsafe action behind a working boundary. A request-only score omits whether that boundary actually contains the action. Retaining both endpoints, the gate reason, and the fixture oracle makes the source of the recorded outcome inspectable. These are measurements of a finite synthetic catalog, not evidence that adding any particular evidence format causes a general safety improvement.
+
+The original responses and worker corpus remain frozen. Derived tables are regenerated from saved decisions, with gate outcomes replayed locally and missing statuses retained. The blind extension has its own protocol, ledger, source hashes, and checksum manifest; it is not mixed into the original record. This separation permits inspection of what changed in the observation while preserving the historical evidence.
+
+\section{Blind provenance extension}
+The separate frozen 240-call study nulls only the outward trusted summary; the gate and other evidence are unchanged. Other evidence can still permit recomputation. Historical and blind collection occurred at different times. The extension therefore tests removal of the explicitly supplied summary under the remaining evidence, rather than unaided inference. Persistent unsafe requests and prevented executions remain separate observations; neither the time-separated comparison nor the gate zero establishes a learned change in policy. \begin{table}[t]\centering\scriptsize\caption{Provenance decisions (D), executions (E), and completed denominators (N), before and after answer blinding.}\input{generated/table_blind}\end{table}
+\section{Limits}
+This audit does not claim learned refusal, general weakness of receipts, or collusion by three speakers. Its limits are: scripted wording, with \WorkersCopied{}/\WorkersTotal{} accepted worker calls copying the prompt's \texttt{wording\_reference}; unmatched arms and honest controls; visible true summaries on old provenance observations; confounded single-versus-coordinated message counts and speaker roles; four families implementing three mechanisms; and synthetic local jobs rather than codebase benchmarks. Retries and new-wording results are excluded from this short version.
+
+\begin{thebibliography}{9}
+\bibitem{agentdojo}
+E. Debenedetti et al., ``AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents,'' arXiv:2406.13352, 2024. \url{https://arxiv.org/abs/2406.13352}
+\bibitem{instructionhierarchy}
+E. Wallace et al., ``The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions,'' arXiv:2404.13208, 2024. \url{https://arxiv.org/abs/2404.13208}
+\bibitem{aicontrol}
+R. Greenblatt et al., ``AI Control: Improving Safety Despite Intentional Subversion,'' arXiv:2312.06942, 2023. \url{https://arxiv.org/abs/2312.06942}
+\bibitem{camel}
+E. Debenedetti et al., ``Defeating Prompt Injections by Design,'' arXiv:2503.18813, 2025. \url{https://arxiv.org/abs/2503.18813}
+\end{thebibliography}
+
+\end{document}
