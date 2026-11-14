@@ -2,7 +2,9 @@
 
 **SEAL (Supervisor Evidence Arms, Live)** records how two live supervisor models respond when workers claim that a local job is finished. The full study name is Live Supervisor Evidence Arms on Fixed Local Fixtures. Four evidence arms are compared on the same fixture catalog: worker claims alone, signed receipts with a fresh checkpoint, a fixed keeper snapshot, and trusted provenance plus a deterministic publication gate. The study has 960 scheduled episodes, 909 completed responses, 29 invalid outputs, and 22 errors. It is a controlled evaluation of instructed attacks on a fake local sink. It is not evidence of spontaneous collusion.
 
-The paper is [`paper/main.pdf`](paper/main.pdf), with source in [`paper/main.tex`](paper/main.tex). `python scripts/reproduce.py` rebuilds the analysis and writes a fresh PDF to `build/paper/main.pdf`. No model call is made during that rebuild.
+The extended preprint is [`paper/main.pdf`](paper/main.pdf), with source in [`paper/main.tex`](paper/main.tex) and the requested Overleaf arXiv style. Separate venue sources and PDFs are listed in [the deliverable registry](docs/seal-deliverables.md). `python scripts/reproduce_all.py` rebuilds all frozen extensions and manuscripts without model calls. It refuses an unfinished primary study.
+
+The results below describe the original 960-call record. Blind provenance, one gate retry, and the new wording study have separate directories, protocols, ledgers, and hashes; they never overwrite `data/study`. `python scripts/reproduce.py` retains the original reproduction and writes its historical report to `build/paper/main.pdf` using `paper/legacy_main.tex`.
 
 ![Unsafe execution among completed attacks](docs/assets/oversight-results.png)
 
@@ -176,4 +178,4 @@ Use fresh output directories for a new source revision. The replay is diagnostic
 
 ## Citation
 
-Cite SEAL (Supervisor Evidence Arms, Live) and the repository commit. [`CITATION.cff`](CITATION.cff) records the title, author, and version. The report's appendix states which implementation, drafting, and formatting assistance was used and that the author reviewed the code, analyses, results, and manuscript.
+Cite SEAL (Supervisor Evidence Arms, Live) and the repository commit. [`CITATION.cff`](CITATION.cff) records the title, author, and version. The manuscripts disclose AI assistance in implementation and drafting; the author remains responsible for reviewing the evidence and submission.
