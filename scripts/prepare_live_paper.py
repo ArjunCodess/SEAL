@@ -1360,6 +1360,11 @@ def compile_pdf(*, copy_to: Path, generated_dir: Path, figures_dir: Path) -> Pat
     with tempfile.TemporaryDirectory(dir=SCRATCH) as temporary:
         isolated = Path(temporary)
         shutil.copytree(paper_dir, isolated / "paper", ignore=shutil.ignore_patterns("live_generated", "*.pdf"))
+        # The original fixed-study report retains its own template when the
+        # root main manuscript is advanced to the independently frozen studies.
+        legacy_template = isolated / 'paper' / 'legacy_main.tex'
+        if legacy_template.is_file():
+            shutil.copyfile(legacy_template, isolated / 'paper' / 'main.tex')
         shutil.copytree(generated_dir, isolated / "paper" / "live_generated")
         shutil.copytree(figures_dir, isolated / "figures")
         cmd = [str(tectonic), str(isolated / "paper" / "main.tex")]

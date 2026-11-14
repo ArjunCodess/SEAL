@@ -27,7 +27,16 @@ def digest_recorded_text(path: Path) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def verify_inputs(data: Path = DATA, source_root: Path = ROOT) -> dict:
+def verify_inputs(data: Path = DATA, source_root: Path = ROOT, *, legacy_only: bool = False) -> dict:
+    """Verify input checksums and pinned contract sources.
+
+    In default mode (legacy_only=False), verifies the current src/*.py modules
+    against data/study/provenance/source_contract.json. Fails with an explicit
+    drift error if any current source differs, with NO fallback.
+
+    In legacy mode (legacy_only=True), verifies preserved legacy_sources/src/*
+    and legacy_sources/source_manifest.json with NO name-only or build fallbacks.
+    """
     checksums = json.loads((data / 'checksums.json').read_text(encoding='utf8'))
     for relative, expected in checksums.items():
         path = (data / relative).resolve()
@@ -36,16 +45,53 @@ def verify_inputs(data: Path = DATA, source_root: Path = ROOT) -> dict:
         if digest(path) != expected:
             raise ValueError(f'Changed study input: {relative}')
     contract = json.loads((data / 'provenance/source_contract.json').read_text(encoding='utf8'))
-    for relative, expected in contract['sha256'].items():
-        path = source_root / relative
-        if not path.is_file() or digest(path) != expected:
-            raise ValueError(f'Frozen study source differs: {relative}')
+
+    if legacy_only:
+        if source_root.name != 'legacy_sources' or not source_root.is_dir():
+            raise ValueError(
+                'Legacy source verification requires the exact legacy_sources directory; '
+                'no root, basename, or build fallback is permitted'
+            )
+        legacy_dir = source_root.resolve()
+        manifest_path = legacy_dir / 'source_manifest.json'
+        if not manifest_path.is_file():
+            raise ValueError(f'Missing legacy source manifest: {manifest_path}')
+        legacy_manifest = json.loads(manifest_path.read_text(encoding='utf8'))
+        for relative, expected in contract['sha256'].items():
+            if legacy_manifest.get(relative) != expected:
+                raise ValueError(
+                    f'Legacy source manifest mismatch for {relative}: expected {expected}, got {legacy_manifest.get(relative)}'
+                )
+            path = legacy_dir / relative
+            if not path.is_file():
+                raise ValueError(f'Preserved legacy source missing: {path}')
+            actual = digest(path)
+            if actual != expected:
+                raise ValueError(f'Preserved legacy source differs: {relative} (expected {expected}, got {actual})')
+    else:
+        for relative, expected in contract['sha256'].items():
+            path = (source_root / relative).resolve()
+            if not path.is_file():
+                raise ValueError(f'Frozen study source missing: {relative}')
+            actual = digest(path)
+            if actual != expected:
+                raise ValueError(f'Frozen study source drift detected in {relative}: expected {expected}, got {actual}')
+
     manifest = json.loads((data / 'main/run_manifest.json').read_text(encoding='utf8'))
     if digest(data / 'main/protocol.json') != manifest['protocol_sha256']:
         raise ValueError('Main protocol and run manifest disagree')
     if digest(data / 'workers/assembled_corpus.json') != manifest['worker_corpus_sha256']:
         raise ValueError('Worker corpus and run manifest disagree')
-    return {'study_files_verified': len(checksums), 'frozen_sources_verified': len(contract['sha256'])}
+    return {
+        'study_files_verified': len(checksums),
+        'frozen_sources_verified': len(contract['sha256']),
+        'source_mode': 'legacy' if legacy_only else 'current',
+        'source_set': 'legacy' if legacy_only else 'current',
+        'source_set_verified': True,
+        'verified_source_set': 'legacy' if legacy_only else 'current',
+        'source_root': str(source_root),
+        'legacy_manifest_verified': legacy_only,
+    }
 
 
 def verify_recovery_inputs(source_root: Path = ROOT) -> dict:
@@ -223,22 +269,143 @@ def verify_pdf(pdf: Path, build_status: Path) -> dict:
             'abstract_words_pdf': words, 'bytes': pdf.stat().st_size}
 
 
-def reproduce(output: Path, *, analysis_only: bool = False) -> dict:
+def generate_extension_manifest(output: Path) -> dict:
+    """Generate extension manifest covering production modules and test suites."""
+    manifest_path = output / 'seal/extension_source_manifest.json'
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    legacy_contract = json.loads((DATA / 'provenance/source_contract.json').read_text(encoding='utf8'))
+    extension_files = sorted({path.relative_to(ROOT).as_posix()
+        for directory in ('src', 'scripts', 'tests') for path in (ROOT / directory).rglob('*.py')
+        if path.relative_to(ROOT).as_posix() not in legacy_contract['sha256']
+        and '__pycache__' not in path.parts})
+    extension_hashes = {}
+    for rel in extension_files:
+        p = ROOT / rel
+        if not p.is_file():
+            raise ValueError(f'Extension file missing: {rel}')
+        extension_hashes[rel] = digest(p)
+
+    legacy_manifest_path = ROOT / 'legacy_sources/source_manifest.json'
+    if not legacy_manifest_path.is_file():
+        raise ValueError(f'Missing legacy manifest: {legacy_manifest_path}')
+    legacy_manifest = json.loads(legacy_manifest_path.read_text(encoding='utf8'))
+    for k, v in legacy_contract['sha256'].items():
+        if legacy_manifest.get(k) != v:
+            raise ValueError(f'Legacy manifest inconsistency for {k}: expected {v}, got {legacy_manifest.get(k)}')
+
+    manifest = {
+        'schema_version': 'seal-extension-manifest-v1',
+        'purpose': 'All Python source, scripts, and tests outside the five-module frozen contract',
+        'extension_sources': extension_hashes,
+        'legacy_sources_pinned': legacy_contract['sha256'],
+        'legacy_manifest_verified': True,
+        'all_extension_files_verified': True,
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf8')
+    return manifest
+
+
+def reproduce(output: Path, *, analysis_only: bool = False, legacy: bool = False) -> dict:
     output = output.resolve()
     if output == ROOT or output.is_relative_to(DATA.resolve()) or DATA.resolve().is_relative_to(output):
         raise ValueError('Build output must be separate from source and immutable study inputs')
     output.mkdir(parents=True, exist_ok=True)
-    verification = verify_inputs()
+
+    if legacy:
+        # Isolated legacy reproduction using preserved legacy sources
+        legacy_dir = (ROOT / 'legacy_sources').resolve()
+        verification = verify_inputs(source_root=legacy_dir, legacy_only=True)
+        verification.update(verify_recovery_inputs())
+        responses = materialize_study(DATA, output)
+
+        saved_sys_path = list(sys.path)
+        saved_source_modules = {
+            name: module for name, module in sys.modules.items()
+            if name == 'src' or name.startswith('src.')
+        }
+        try:
+            sys.path = [str(legacy_dir)] + [
+                p for p in sys.path
+                if Path(p).resolve() not in (ROOT.resolve(), (ROOT / 'src').resolve())
+            ]
+            for mod_name in list(sys.modules.keys()):
+                if mod_name == 'src' or mod_name.startswith('src.'):
+                    del sys.modules[mod_name]
+
+            from src import live_study
+            from src.live_analysis import run_analysis
+
+            # Assert isolated imports resolved strictly to legacy_sources
+            assert Path(live_study.__file__).resolve().is_relative_to(legacy_dir), (
+                f'Isolated legacy import violation: live_study resolved to {live_study.__file__}'
+            )
+            assert Path(run_analysis.__code__.co_filename).resolve().is_relative_to(legacy_dir), (
+                f'Isolated legacy import violation: live_analysis resolved to {run_analysis.__code__.co_filename}'
+            )
+
+            live_study.configure_study_paths(output / 'study/main')
+            live_study.export_analysis_jsonl(output / 'episodes.jsonl')
+            run_analysis(output / 'episodes.jsonl', output / 'analysis', bootstrap_replicates=2000, seed=20261108, ci=.95)
+        finally:
+            sys.path = saved_sys_path
+            for name in list(sys.modules):
+                if name == 'src' or name.startswith('src.'):
+                    del sys.modules[name]
+            sys.modules.update(saved_source_modules)
+
+        verification.update(verify_analysis(output))
+        verification.update(audit_execution(responses, output))
+        render_overview(output / 'analysis', output / 'overview.png')
+        verification['mode'] = 'legacy'
+        (output / 'reproduction.json').write_text(json.dumps(verification, indent=2) + '\n', encoding='utf8')
+        return verification
+
+    # Default reproduction: verifies current sources, runs frozen analysis, then SEAL extensions
+    verification = verify_inputs(source_root=ROOT, legacy_only=False)
     verification.update(verify_recovery_inputs())
     responses = materialize_study(DATA, output)
+
     from src import live_study
     from src.live_analysis import run_analysis
+    from src.seal_analysis import run_seal_stages_1_3
+    from scripts.mutate_gate import generate_gate_mutations
+
     live_study.configure_study_paths(output / 'study/main')
     live_study.export_analysis_jsonl(output / 'episodes.jsonl')
     run_analysis(output / 'episodes.jsonl', output / 'analysis', bootstrap_replicates=2000, seed=20261108, ci=.95)
     verification.update(verify_analysis(output))
     verification.update(audit_execution(responses, output))
     render_overview(output / 'analysis', output / 'overview.png')
+
+    # SEAL Retrospective Extensions: Stages 1, 2, and 3
+    seal_analysis_dir = output / 'seal/analysis'
+    seal_summary = run_seal_stages_1_3(output / 'episodes.jsonl', seal_analysis_dir)
+
+    # Gate mutation sweep (Stage 2)
+    gate_csv = output / 'gate_mutations.csv'
+    gate_manifest_path = output / 'gate_mutations_manifest.json'
+    gate_manifest = generate_gate_mutations(gate_csv, gate_manifest_path)
+
+    # Mirror Stage 2 under build/seal/
+    seal_gate_csv = output / 'seal/gate_mutations.csv'
+    seal_gate_manifest = output / 'seal/gate_mutations_manifest.json'
+    shutil.copyfile(gate_csv, seal_gate_csv)
+    shutil.copyfile(gate_manifest_path, seal_gate_manifest)
+
+    # Extension manifest covering production and tests
+    ext_manifest = generate_extension_manifest(output)
+
+    verification['seal'] = {
+        'schema_version': seal_summary['schema_version'],
+        'stages_1_3_outputs': seal_summary['outputs'],
+        'stage_2_total_mutations': gate_manifest['total_mutations_evaluated'],
+        'stage_2_observed_actions': gate_manifest['observed_gate_actions'],
+        'stage_2_unsafe_executions': gate_manifest['attack_unsafe_executions'],
+        'positive_controls_passed': gate_manifest['controls']['positive_legitimate_controls']['all_passed'],
+        'mismatch_controls_passed': gate_manifest['controls']['isolated_equality_mismatch_controls']['all_passed'],
+        'extension_manifest': 'seal/extension_source_manifest.json',
+    }
+
     if not analysis_only:
         from scripts.prepare_live_paper import run
         report = output / 'paper'
@@ -255,14 +422,20 @@ def main() -> None:
     parser.add_argument('--output', type=Path, default=ROOT / 'build', help='Generated outputs, default: build/')
     parser.add_argument('--analysis-only', action='store_true', help='Rebuild numeric evidence without requiring TeX')
     parser.add_argument('--verify-only', action='store_true', help='Verify frozen inputs and sources without rebuilding')
+    parser.add_argument('--legacy', action='store_true', help='Run isolated legacy reproduction using preserved legacy sources')
     parser.add_argument('--update-docs-figure', action='store_true', help='Refresh the versioned README figure from rebuilt results')
     args = parser.parse_args()
-    result = {**verify_inputs(), **verify_recovery_inputs()} if args.verify_only else reproduce(args.output, analysis_only=args.analysis_only)
+    if args.verify_only:
+        source_root = (ROOT / 'legacy_sources') if args.legacy else ROOT
+        result = {**verify_inputs(source_root=source_root, legacy_only=args.legacy), **verify_recovery_inputs()}
+    else:
+        result = reproduce(args.output, analysis_only=args.analysis_only, legacy=args.legacy)
     if args.update_docs_figure:
         if args.verify_only:
             parser.error('--update-docs-figure requires rebuilding the analysis')
         shutil.copyfile(args.output / 'overview.png', ROOT / 'docs/assets/oversight-results.png')
     print(json.dumps(result, indent=2))
+
 
 if __name__ == '__main__':
     main()

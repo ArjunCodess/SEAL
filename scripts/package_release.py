@@ -1,11 +1,11 @@
 """Package the research source, frozen evidence and rebuilt report."""
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
 import zipfile
-import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -16,23 +16,32 @@ PREFIX = 'supervisor-evidence-arms/'
 
 def release_files(root: Path, build: Path) -> dict[str, Path]:
     files = {}
-    for directory in ('src', 'scripts', 'tests', 'paper', 'data/study', 'experiments', 'docs', '.github'):
+    for directory in ('src', 'scripts', 'tests', 'paper', 'data/study',
+                      'data/study_blind_provenance', 'data/study_gate_retry',
+                      'data/study_wording_v2', 'data/study_wording_v3', 'data/account_evidence', 'configs',
+                      'experiments', 'docs', '.github', 'legacy_sources'):
         for path in (root / directory).rglob('*'):
-            if path.is_file() and not path.is_symlink() and '__pycache__' not in path.parts and path.suffix not in {'.pyc', '.log', '.aux', '.out'}:
+            if path.is_file() and not path.is_symlink() and '__pycache__' not in path.parts and path.name != '.run.lock' and path.suffix not in {'.pyc', '.log', '.aux', '.out', '.partial'}:
                 files[path.relative_to(root).as_posix()] = path
     for name in ('README.md', 'LICENSE', 'CITATION.cff', '.gitignore', '.gitattributes', 'pyproject.toml', 'requirements.txt', 'run_all.sh', 'run_all.ps1'):
         files[name] = root / name
-    output_roots = [(build / name, build) for name in ('analysis', 'paper')]
+    selection = root / 'data/wording_cohort_selection.json'
+    if selection.exists():
+        files['data/wording_cohort_selection.json'] = selection
+    output_roots = [(build / name, build) for name in ('analysis', 'paper', 'seal', 'venues')]
     output_roots += [(root / 'build' / name, root / 'build') for name in
                      ('recovery-costs', 'recovery-replay-final', 'recovery-study-prep-final', 'natural-context-validated')]
     for directory, base in output_roots:
+        if not directory.exists():
+            continue
         for path in directory.rglob('*'):
             if path.name in {'contact-sheet.png', 'final-page.png', 'page-13.png', 'page-14.png'}:
                 continue
-            if path.is_file() and path.suffix.lower() in {'.csv', '.json', '.md', '.png', '.pdf', '.tex'}:
+            if path.is_file() and path.suffix.lower() in {'.csv', '.json', '.jsonl', '.md', '.png', '.pdf', '.tex'}:
                 files['build/' + path.relative_to(base).as_posix()] = path
     for name in ('reproduction.json', 'gateway_audit.csv', 'overview.png'):
-        files['build/' + name] = build / name
+        if (build / name).is_file():
+            files['build/' + name] = build / name
     for name, path in files.items():
         if path.suffix.lower() in {'.dpapi', '.pem', '.key'} or path.name.startswith('.env'):
             raise ValueError(f'Credential-like file is not a release artifact: {name}')
@@ -71,11 +80,21 @@ def main() -> None:
     parser.add_argument('--build', type=Path, default=ROOT / 'build')
     parser.add_argument('--output', type=Path, default=ROOT / 'dist/supervisor-evidence-arms-0.1.0.zip')
     args = parser.parse_args()
+    from src.seal_followups import require_frozen
+    for name in ('study_blind_provenance', 'study_gate_retry', 'study_wording_v2', 'study_wording_v3'):
+        directory = ROOT / 'data' / name
+        if directory.exists():
+            require_frozen(directory)
     verify_inputs()
+    if (ROOT / 'data/study_wording_v3').exists():
+        from scripts.audit_seal_release import run as audit_release
+        audit_release()
+    verify_inputs(source_root=ROOT / 'legacy_sources', legacy_only=True)
     verify_recovery_inputs()
     verify_analysis(args.build)
     verify_pdf(args.build / 'paper/main.pdf', args.build / 'paper/build_status.json')
     print(json.dumps(make_archive(release_files(ROOT, args.build), args.output), indent=2))
+
 
 if __name__ == '__main__':
     main()
